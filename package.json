@@ -1,0 +1,30 @@
+{
+  "name": "couchdb_bulkdoc_appender",
+  "version": "0.0.1",
+  "description": "utility to smooth over saving and updating bulkdocs to couchdb.  it will check _rev for you, and appends new data",
+  "main": "lib/bulkdoc_appender.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "lodash": "",
+    "superagent": "",
+    "config_okay": "0.0.2"
+  },
+  "devDependencies": {
+    "should": ""
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jmarca/couchdb_bulkdoc_appender.git"
+  },
+  "keywords": [
+    "couchdb",
+    "bulkdocs"
+  ],
+  "author": "James E. Marca",
+  "license": "MIT"
+}

@@ -1,0 +1,10 @@
+{
+    "couchdb": {
+        "url": "http://127.0.0.1",
+        "port":5984,
+        "db": "a_test_data",
+        "auth":{"username":"james",
+                "password":"yogurt toothpaste shoes"
+               }
+    }
+}
