@@ -1,6 +1,6 @@
 {
   "name": "couchdb_bulkdoc_appender",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "utility to smooth over saving and updating bulkdocs to couchdb.  it will check _rev for you, and appends new data",
   "main": "lib/bulkdoc_appender.js",
   "directories": {
