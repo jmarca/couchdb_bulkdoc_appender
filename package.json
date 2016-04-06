@@ -12,6 +12,7 @@
     "config_okay": ""
   },
   "devDependencies": {
+    "mocha": "^2.4.5",
     "should": ""
   },
   "scripts": {
