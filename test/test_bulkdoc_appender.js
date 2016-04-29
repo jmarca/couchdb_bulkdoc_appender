@@ -142,7 +142,9 @@ describe('save bulk docs, with some new, some old',function(){
     it('should bulk save docs'
       ,function(done){
            var appender = make_bulkdoc_appender(config.couchdb)
-           var newdocs = _.clone(docs,true)
+          var newdocs = _.clone(docs,true)
+          var expected_length = newdocs.docs.length
+
            newdocs.docs = _.map(newdocs.docs,function(doc){
                          doc.altered=true
                          return doc
@@ -153,7 +155,9 @@ describe('save bulk docs, with some new, some old',function(){
            newdocs.docs.push({'_id':'second'
                         ,'garage':'band'
                         ,'password':'secret'})
-           appender(newdocs,function(err,res){
+          expected_length += 2
+
+          appender(newdocs,function(err,res){
                should.not.exist(err)
                _.each(res,function(r){
                    r.should.have.property('ok')
@@ -192,6 +196,7 @@ describe('save bulk docs, with some new, some old',function(){
                    rq.end(function(e,r){
                        // now test that I saved what I expect
                        var result = r.body
+                       expected_length.should.eql(result.rows.length)
                        _.each(result.rows,function(row){
                            var doc = row.doc
                            doc.should.have.property('basement')
