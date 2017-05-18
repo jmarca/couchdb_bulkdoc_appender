@@ -1,6 +1,8 @@
 
 # couchdb_bulkdoc_appender
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/jmarca/couchdb_bulkdoc_appender.svg)](https://greenkeeper.io/)
+
 This is a utility to help out saving docs to couchdb when those docs
 might be updating existing docs.
 
