@@ -1,0 +1,30 @@
+# Sample .travis.yml for R projects from https://github.com/craigcitro/r-travis
+
+language: node_js
+node_js:
+  - "node"
+  - "7"
+  - "6"
+
+
+env:
+
+addons:
+  code_climate:
+
+
+services:
+  - couchdb
+
+before_script:
+  - curl -s -X PUT http://localhost:5984/_config/admins/bilbo -d '"baggins"'
+  - echo "{\"couchdb\":{\"host\":\"127.0.0.1\",\"port\":5984,\"db\":\"a_teststatedb\",\"auth\":{\"username\":\"bilbo\",\"password\":\"baggins\"}}}" > test.config.json && chmod 0600 test.config.json
+
+notifications:
+  email:
+    on_success: change
+    on_failure: change
+
+after_success:
+  - npm install codeclimate-test-reporter
+  - ./node_modules/.bin/tap --coverage-report=text-lcov | ./node_modules/.bin/codeclimate-test-reporter

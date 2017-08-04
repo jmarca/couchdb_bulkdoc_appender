@@ -1,26 +1,19 @@
 /* global require console process describe it before after */
 
-var should = require('should')
-
-var _ = require('lodash')
+const tap = require('tap')
 var superagent = require('superagent')
 
-var make_bulkdoc_appender = require('../.')
+const make_bulkdoc_appender = require('../.')
 
-var env = process.env;
-var cuser = env.COUCHDB_USER ;
-var cpass = env.COUCHDB_PASS ;
-var chost = env.COUCHDB_HOST || 'localhost';
-var cport = env.COUCHDB_PORT || 5984;
+const path    = require('path')
+const rootdir = path.normalize(__dirname)
+const config_okay = require('config_okay')
+const config_file = rootdir+'/../test.config.json'
+const config={}
 
-var test_db ='test%2fbulk%2fappender'
-var couch = 'http://'+chost+':'+cport+'/'+test_db
+const utils = require('./utils.js')
 
-var path    = require('path')
-var rootdir = path.normalize(__dirname)
-var config_file = rootdir+'/../test.config.json'
-
-var config_okay = require('config_okay')
+tap.plan(1)
 
 var docs = {'docs':[{'_id':'doc1'
                     ,foo:'bar'}
@@ -71,427 +64,366 @@ var docs = {'docs':[{'_id':'doc1'
                    ]
            }
 
-var created_locally=false
-
-function create_tempdb(config,cb){
-    var date = new Date()
-    var test_db_unique = [config.couchdb.db,
-                          date.getHours(),
-                          date.getMinutes(),
-                          date.getSeconds(),
-                          date.getMilliseconds()].join('-')
-    config.couchdb.db = test_db_unique
-    var cdb =
-        [config.couchdb.url+':'+config.couchdb.port
+function populate_db(config){
+    const cdb =
+        [config.couchdb.host+':'+config.couchdb.port
         ,config.couchdb.db].join('/')
-    superagent.put(cdb)
-    .type('json')
-    .auth(config.couchdb.auth.username
-         ,config.couchdb.auth.password)
-    .end(function(err,result){
-        if(result.error){
-            // do not delete if we didn't create
-            config.delete_db=false
-        }else{
-            config.delete_db=true
-        }
-        superagent.post(cdb+'/_bulk_docs')
+
+    return superagent.post(cdb+'/_bulk_docs')
         .type('json')
-        .set('accept','application/json')
-        .auth(config.couchdb.auth.username
-             ,config.couchdb.auth.password)
         .send(docs)
-        .end(function(e,r){
-            return cb(e)
-        })
-        return null
-    })
-    return null
+
 }
 
+function testing(t) {
+    t.plan(2)
+    return t.test(
+        'save bulk docs, with some new, some old', tt=>{
 
-describe('save bulk docs, with some new, some old',function(){
-    var config = {}
-    before(function(done){
-        config_okay(config_file,function(err,c){
-            if(!c.couchdb.db){ throw new Error('need valid db defined in test.config.json')}
-            config=_.cloneDeep(c)
-            create_tempdb(config,done)
-            return null
-        })
-        return null
-    })
-    after(function(done){
-        var cdb =
-            config.couchdb.url+':'+config.couchdb.port
-                 + '/'+ config.couchdb.db
-        if(config.delete_db){
-            superagent.del(cdb)
-            .type('json')
-            .auth(config.couchdb.auth.username
-                 ,config.couchdb.auth.password)
-            .end(function(e,r){
-                return done()
+            const appender = make_bulkdoc_appender(config.couchdb)
+            const newdocs = JSON.parse(JSON.stringify(docs))
+            let expected_length = newdocs.docs.length
+
+            newdocs.docs = newdocs.docs.map( doc => {
+                doc.altered=true
+                return doc
             })
-            return null
-        }else{
-            console.log("not deleting what I didn't create:" + cdb)
-            return done()
-        }
-    })
-    it('should bulk save docs'
-      ,function(done){
-           var appender = make_bulkdoc_appender(config.couchdb)
-          var newdocs = _.clone(docs,true)
-          var expected_length = newdocs.docs.length
+            newdocs.docs.push({'_id':'first'
+                               ,'garage':'band'
+                               ,'password':'secret'})
+            newdocs.docs.push({'_id':'second'
+                               ,'garage':'band'
+                               ,'password':'secret'})
+            expected_length += 2
 
-           newdocs.docs = _.map(newdocs.docs,function(doc){
-                         doc.altered=true
-                         return doc
-                     })
-           newdocs.docs.push({'_id':'first'
-                        ,'garage':'band'
-                        ,'password':'secret'})
-           newdocs.docs.push({'_id':'second'
-                        ,'garage':'band'
-                        ,'password':'secret'})
-          expected_length += 2
-
-          appender(newdocs,function(err,res){
-               should.not.exist(err)
-               _.each(res,function(r){
-                   r.should.have.property('ok')
-                   r.should.have.property('id')
-                   r.should.have.property('rev')
-                   if(r.garage!==undefined){
-                       r.garage.should.eql('band')
-                   }
-               });
-               // then should be able to append to those docs
-               newdocs.docs = _.map(newdocs.docs,function(doc){
-                             if( doc.garage !== undefined){
-                                 doc.garage='car'
-                             }
-                             doc.basement=false
-                             return doc
-                         })
-               appender(newdocs,function(err,res){
-                   should.not.exist(err)
-                   _.each(res,function(r){
-                       r.should.have.property('ok')
-                       r.should.have.property('id')
-                       r.should.have.property('rev')
-                   });
-                   var db = config.couchdb.db
-                   var cdb = config.couchdb.url || '127.0.0.1'
-                   var cport = config.couchdb.port || 5984
-                   cdb = cdb+':'+cport
-                   if(! /http/.test(cdb)){
-                       cdb = 'http://'+cdb
-                   }
-                   cdb += '/'+db
-                   var rq = superagent.get(cdb+'/_all_docs?include_docs=true')
-                            .type('json')
-                            .set('accept','application/json')
-                   rq.end(function(e,r){
-                       // now test that I saved what I expect
-                       var result = r.body
-                       expected_length.should.eql(result.rows.length)
-                       _.each(result.rows,function(row){
-                           var doc = row.doc
-                           doc.should.have.property('basement')
-                           if(doc.garage !== undefined){
-                               doc.garage.should.eql('car')
-                           }
-                       });
-
-                       return done()
-                   })
-               })
-               return null
-           })
-           return null
-       })
-    return null
-})
-describe('save bulk docs, with nested objects',function(){
-    var config = {}
-    before(function(done){
-        config_okay(config_file,function(err,c){
-            if(!c.couchdb.db){ throw new Error('need valid db defined in test.config.json')}
-            config=_.cloneDeep(c)
-            create_tempdb(config,function(){
-                var db = config.couchdb.db
-                var cdb = config.couchdb.url || '127.0.0.1'
-                var cport = config.couchdb.port || 5984
-                cdb = cdb+':'+cport
-                if(! /http/.test(cdb)){
-                    cdb = 'http://'+cdb
-                }
-                cdb += '/'+db
-                var rq = superagent.get(cdb+'/'+docs.docs[2]._id+'?include_docs=true')
-                         .type('json')
-                         .set('accept','application/json')
-                rq.end(function(e,r){
-                    // make sure start test with known docexpect
-                    var doc = r.body
-                    doc.should.not.have.property('2014')
-                    doc.should.have.property('2009')
-                    doc.should.have.property("attachment_db")
-                    return done()
+            appender(newdocs, (err,res) => {
+                tt.notOk(err)
+                tt.ok(res)
+                res.forEach( r => {
+                    tt.ok(r)
+                    tt.ok(r.ok)
+                    tt.ok(r.id)
+                    tt.ok(r.rev)
+                    if(r.garage!==undefined){
+                        tt.is( r.garage,'band' )
+                    }
                 })
 
+                // then should be able to append to those docs
+
+                newdocs.docs = newdocs.docs.map( doc => {
+                    if( doc.garage !== undefined){
+                        doc.garage='car'
+                    }
+                    doc.basement=false
+                    return doc
+                })
+                // also here, make sure that can call as a promise thing
+                appender(newdocs)
+                    .then( res => {
+                        console.log('got response')
+                        tt.ok(res)
+                        res.forEach( r => {
+                            tt.ok(r.ok)
+                            tt.ok(r.id)
+                            tt.ok(r.rev)
+                        })
+                        var db = config.couchdb.db
+                        var cdb = config.couchdb.url || '127.0.0.1'
+                        var cport = config.couchdb.port || 5984
+                        cdb = cdb+':'+cport
+                        if(! /http/.test(cdb)){
+                            cdb = 'http://'+cdb
+                        }
+                   // cdb += '/'+db
+                   // var rq = superagent.get(cdb+'/_all_docs?include_docs=true')
+                   //          .type('json')
+                   //          .set('accept','application/json')
+                   // rq.end(function(e,r){
+                   //     // now test that I saved what I expect
+                   //     var result = r.body
+                   //     expected_length.should.eql(result.rows.length)
+                   //     _.each(result.rows,function(row){
+                   //         var doc = row.doc
+                   //         doc.should.have.property('basement')
+                   //         if(doc.garage !== undefined){
+                   //             doc.garage.should.eql('car')
+                   //         }
+                   //     });
+                        console.log('ending test')
+                        tt.end()
+                        return null
+                    })
                 return null
             })
             return null
+        }).then(function(t){
+            return t.test(
+                'save bulk docs, with nested objects', tt => {
+
+                    const appender = make_bulkdoc_appender(config.couchdb)
+                    const newdoc ={"_id": "311831",
+                                   "2006":[{"name":"Elk Grove Blvd",
+                                            "cal_pm":"10.859",
+                                            "abs_pm":506.152,
+                                            "latitude_4269":"38.409253",
+                                            "longitude_4269":"-121.484009",
+                                            "lanes":1,
+                                            "segment_length":null,
+                                            "freeway":5,
+                                            "direction":"S",
+                                            "vdstype":"OR",
+                                            "district":3,
+                                            "versions":["2006-12-30"],
+                                            "geojson":{"type":"Point",
+                                                       "crs":{"type":"name",
+                                                              "properties":{"name":"EPSG:4326"}},
+                                                       "coordinates":[-121.483721,
+                                                                      38.409608]}}],
+                                   "2007":[{"name":"Elk Grove Blvd",
+                                            "cal_pm":"10.859",
+                                            "abs_pm":506.152,
+                                            "latitude_4269":"38.409253",
+                                            "longitude_4269":"-121.484009",
+                                            "lanes":1,
+                                            "segment_length":null,
+                                            "freeway":5,
+                                            "direction":"S",
+                                            "vdstype":"OR",
+                                            "district":3,
+                                            "versions":["2007-01-09",
+                                                        "2007-01-24",
+                                                        "2007-11-22",
+                                                        "2007-11-29"],
+                                            "geojson":{"type":"Point",
+                                                       "crs":{"type":"name",
+                                                              "properties":{"name":"EPSG:4326"}},
+                                                       "coordinates":[-121.483721,
+                                                                      38.409608]}}],
+                                   "2008":[{"name":"Elk Grove Blvd",
+                                            "cal_pm":"10.859",
+                                            "abs_pm":506.152,
+                                            "latitude_4269":"38.409253",
+                                            "longitude_4269":"-121.484009",
+                                            "lanes":1,
+                                            "segment_length":null,
+                                            "freeway":5,
+                                            "direction":"S",
+                                            "vdstype":"OR",
+                                            "district":3,
+                                            "versions":["2008-01-12",
+                                                        "2008-03-08",
+                                                        "2008-06-13",
+                                                        "2008-10-16",
+                                                        "2008-11-15",
+                                                        "2008-12-03"],
+                                            "geojson":{"type":"Point",
+                                                       "crs":{"type":"name",
+                                                              "properties":{"name":"EPSG:4326"}},
+                                                       "coordinates":[-121.483721,
+                                                                      38.409608]}}],
+                                   "2009":[{"name":"Elk Grove Blvd",
+                                            "cal_pm":"10.859",
+                                            "abs_pm":506.152,
+                                            "latitude_4269":"38.409253",
+                                            "longitude_4269":"-121.484009",
+                                            "lanes":1,
+                                            "segment_length":null,
+                                            "freeway":5,
+                                            "direction":"S",
+                                            "vdstype":"OR",
+                                            "district":3,
+                                            "versions":["2009-01-07",
+                                                        "2009-01-10",
+                                                        "2009-01-30",
+                                                        "2009-10-08",
+                                                        "2009-11-11",
+                                                        "2009-11-19",
+                                                        "2009-11-20"],
+                                            "geojson":{"type":"Point",
+                                                       "crs":{"type":"name",
+                                                              "properties":{"name":"EPSG:4326"}},
+                                                       "coordinates":[-121.483721,
+                                                                      38.409608]}}],
+                                   "2010":[{"name":"Elk Grove Blvd",
+                                            "cal_pm":"10.859",
+                                            "abs_pm":506.152,
+                                            "latitude_4269":"38.409253",
+                                            "longitude_4269":"-121.484009",
+                                            "lanes":1,
+                                            "segment_length":null,
+                                            "freeway":5,
+                                            "direction":"S",
+                                            "vdstype":"OR",
+                                            "district":3,
+                                            "versions":["2010-01-01",
+                                                        "2010-01-05",
+                                                        "2010-01-07",
+                                                        "2010-07-21",
+                                                        "2010-07-29",
+                                                        "2010-08-14",
+                                                        "2010-08-27"],
+                                            "geojson":{"type":"Point",
+                                                       "crs":{"type":"name",
+                                                              "properties":{"name":"EPSG:4326"}},
+                                                       "coordinates":[-121.483721,
+                                                                      38.409608]}}],
+                                   "2012":[{"name":"Elk Grove Blvd",
+                                            "cal_pm":"10.859",
+                                            "abs_pm":506.152,
+                                            "latitude_4269":"38.409253",
+                                            "longitude_4269":"-121.484009",
+                                            "lanes":1,
+                                            "segment_length":null,
+                                            "freeway":5,
+                                            "direction":"S",
+                                            "vdstype":"OR",
+                                            "district":3,
+                                            "versions":["2012-09-22",
+                                                        "2012-10-04",
+                                                        "2012-12-28"],
+                                            "geojson":{"type":"Point",
+                                                       "crs":{"type":"name",
+                                                              "properties":{"name":"EPSG:4326"}},
+                                                       "coordinates":[-121.483721,
+                                                                      38.409608]}}],
+                                   "2013":[{"name":"Elk Grove Blvd",
+                                            "cal_pm":"10.859",
+                                            "abs_pm":506.152,
+                                            "latitude_4269":"38.409253",
+                                            "longitude_4269":"-121.484009",
+                                            "lanes":1,
+                                            "segment_length":null,
+                                            "freeway":5,
+                                            "direction":"S",
+                                            "vdstype":"OR",
+                                            "district":3,
+                                            "versions":["2013-01-31",
+                                                        "2013-02-02",
+                                                        "2013-02-07",
+                                                        "2013-10-04",
+                                                        "2013-12-20",
+                                                        "2013-12-31"],
+                                            "geojson":{"type":"Point",
+                                                       "crs":{"type":"name",
+                                                              "properties":{"name":"EPSG:4326"}},
+                                                       "coordinates":[-121.483721,
+                                                                      38.409608]}}],
+                                   "2014":[{"name":"Elk Grove Blvd",
+                                            "cal_pm":"10.859",
+                                            "abs_pm":506.152,
+                                            "latitude_4269":"38.409253",
+                                            "longitude_4269":"-121.484009",
+                                            "lanes":1,
+                                            "segment_length":null,
+                                            "freeway":5,
+                                            "direction":"S",
+                                            "vdstype":"OR",
+                                            "district":3,
+                                            "versions":["2014-01-01",
+                                                        "2014-01-10",
+                                                        "2014-01-11",
+                                                        "2014-01-29",
+                                                        "2014-02-28"],
+                                            "geojson":{"type":"Point",
+                                                       "crs":{"type":"name",
+                                                              "properties":{"name":"EPSG:4326"}},
+                                                       "coordinates":[-121.483721,
+                                                                      38.409608]}}]}
+
+                    // fix the above
+                    Object.keys(newdoc).forEach( year =>{
+
+                        if(year === '_id') return null
+                        newdoc[year] = {'properties':newdoc[year]}
+                        // too lazy to fix the above by hand
+                        return null
+                    })
+
+                    appender({docs:[newdoc]},(err,res) => {
+                        tt.notOk(err)
+                        tt.ok(res)
+                        res.forEach( r => {
+                            tt.ok(r)
+                            tt.ok(r.ok)
+                            tt.ok(r.id)
+                            tt.ok(r.rev)
+                        })
+                        const db = config.couchdb.db
+                        let cdb = config.couchdb.url || '127.0.0.1'
+                        let cport = config.couchdb.port || 5984
+                        cdb = cdb+':'+cport
+                        if(! /http/.test(cdb)){
+                            cdb = 'http://'+cdb
+                        }
+                        cdb += '/'+db
+                        const rq = superagent.get(cdb+'/'+newdoc._id+'?include_docs=true')
+                              .type('json')
+                              .set('accept','application/json')
+                              .then( r => {
+                                  tt.ok(r)
+                                  tt.ok(r.body)
+                                  // now test that I saved what I expect
+                                  const doc = r.body
+                                  tt.ok(doc['2006'])
+                                  tt.ok(doc['2009'])
+                                  tt.ok(doc['2014'])
+                                  tt.ok(doc.attachment_db)
+
+
+                                  // should copy new values
+                                  tt.same(doc['2006'].properties
+                                       ,newdoc['2006'].properties)
+
+                                  // should not destroy old values
+                                  tt.same(Object.keys(doc['2009']),
+                                          ["vdsdata",
+                                           "rawdata",
+                                           "row",
+                                           "vdsimputed",
+                                           "properties",
+                                           "truckimputed",
+                                           "vdsraw_chain_lengths"])
+
+                                  tt.same(doc['2009'].properties,
+                                          newdoc['2009'].properties)
+
+                                  let expected_keys = Object.keys(newdoc)
+                                  expected_keys.push("_rev","detached","attachment_db")
+                                  // and also from the first test, we
+                                  // have altered and basement
+                                  expected_keys.push("altered","basement")
+
+                                  tt.same(Object.keys(doc).sort()
+                                          ,expected_keys.sort())
+
+                                  tt.end()
+                                  return null
+                              })
+                        return null
+                    })
+                    return null
+                })
         })
-        return null
+}
+
+
+config_okay(config_file)
+    .then( (c) => {
+        if(!c.couchdb.db){ throw new Error('need valid db defined in test.config.json')}
+        config.couchdb = c.couchdb
+        return utils.create_tempdb(config)
     })
-    after(function(done){
-        var cdb =
-            config.couchdb.url+':'+config.couchdb.port
-                 + '/'+ config.couchdb.db
-        if(config.delete_db){
-            superagent.del(cdb)
-            .type('json')
-            .auth(config.couchdb.auth.username
-                 ,config.couchdb.auth.password)
-            .end(function(e,r){
-                return done()
-            })
-            return null
-        }else{
-            console.log("not deleting what I didn't create:" + cdb)
-            return done()
-        }
+    .then(()=>{
+        return populate_db(config)
     })
-    it('should bulk save docs'
-      ,function(done){
-           var appender = make_bulkdoc_appender(config.couchdb)
-           var newdoc ={"_id": "311831",
-                        "2006":[{"name":"Elk Grove Blvd",
-                                  "cal_pm":"10.859",
-                                  "abs_pm":506.152,
-                                  "latitude_4269":"38.409253",
-                                  "longitude_4269":"-121.484009",
-                                  "lanes":1,
-                                  "segment_length":null,
-                                  "freeway":5,
-                                  "direction":"S",
-                                  "vdstype":"OR",
-                                  "district":3,
-                                  "versions":["2006-12-30"],
-                                  "geojson":{"type":"Point",
-                                             "crs":{"type":"name",
-                                                    "properties":{"name":"EPSG:4326"}},
-                                             "coordinates":[-121.483721,
-                                                            38.409608]}}],
-                         "2007":[{"name":"Elk Grove Blvd",
-                                  "cal_pm":"10.859",
-                                  "abs_pm":506.152,
-                                  "latitude_4269":"38.409253",
-                                  "longitude_4269":"-121.484009",
-                                  "lanes":1,
-                                  "segment_length":null,
-                                  "freeway":5,
-                                  "direction":"S",
-                                  "vdstype":"OR",
-                                  "district":3,
-                                  "versions":["2007-01-09",
-                                              "2007-01-24",
-                                              "2007-11-22",
-                                              "2007-11-29"],
-                                  "geojson":{"type":"Point",
-                                             "crs":{"type":"name",
-                                                    "properties":{"name":"EPSG:4326"}},
-                                             "coordinates":[-121.483721,
-                                                            38.409608]}}],
-                         "2008":[{"name":"Elk Grove Blvd",
-                                  "cal_pm":"10.859",
-                                  "abs_pm":506.152,
-                                  "latitude_4269":"38.409253",
-                                  "longitude_4269":"-121.484009",
-                                  "lanes":1,
-                                  "segment_length":null,
-                                  "freeway":5,
-                                  "direction":"S",
-                                  "vdstype":"OR",
-                                  "district":3,
-                                  "versions":["2008-01-12",
-                                              "2008-03-08",
-                                              "2008-06-13",
-                                              "2008-10-16",
-                                              "2008-11-15",
-                                              "2008-12-03"],
-                                  "geojson":{"type":"Point",
-                                             "crs":{"type":"name",
-                                                    "properties":{"name":"EPSG:4326"}},
-                                             "coordinates":[-121.483721,
-                                                            38.409608]}}],
-                         "2009":[{"name":"Elk Grove Blvd",
-                                  "cal_pm":"10.859",
-                                  "abs_pm":506.152,
-                                  "latitude_4269":"38.409253",
-                                  "longitude_4269":"-121.484009",
-                                  "lanes":1,
-                                  "segment_length":null,
-                                  "freeway":5,
-                                  "direction":"S",
-                                  "vdstype":"OR",
-                                  "district":3,
-                                  "versions":["2009-01-07",
-                                              "2009-01-10",
-                                              "2009-01-30",
-                                              "2009-10-08",
-                                              "2009-11-11",
-                                              "2009-11-19",
-                                              "2009-11-20"],
-                                  "geojson":{"type":"Point",
-                                             "crs":{"type":"name",
-                                                    "properties":{"name":"EPSG:4326"}},
-                                             "coordinates":[-121.483721,
-                                                            38.409608]}}],
-                         "2010":[{"name":"Elk Grove Blvd",
-                                  "cal_pm":"10.859",
-                                  "abs_pm":506.152,
-                                  "latitude_4269":"38.409253",
-                                  "longitude_4269":"-121.484009",
-                                  "lanes":1,
-                                  "segment_length":null,
-                                  "freeway":5,
-                                  "direction":"S",
-                                  "vdstype":"OR",
-                                  "district":3,
-                                  "versions":["2010-01-01",
-                                              "2010-01-05",
-                                              "2010-01-07",
-                                              "2010-07-21",
-                                              "2010-07-29",
-                                              "2010-08-14",
-                                              "2010-08-27"],
-                                  "geojson":{"type":"Point",
-                                             "crs":{"type":"name",
-                                                    "properties":{"name":"EPSG:4326"}},
-                                             "coordinates":[-121.483721,
-                                                            38.409608]}}],
-                         "2012":[{"name":"Elk Grove Blvd",
-                                  "cal_pm":"10.859",
-                                  "abs_pm":506.152,
-                                  "latitude_4269":"38.409253",
-                                  "longitude_4269":"-121.484009",
-                                  "lanes":1,
-                                  "segment_length":null,
-                                  "freeway":5,
-                                  "direction":"S",
-                                  "vdstype":"OR",
-                                  "district":3,
-                                  "versions":["2012-09-22",
-                                              "2012-10-04",
-                                              "2012-12-28"],
-                                  "geojson":{"type":"Point",
-                                             "crs":{"type":"name",
-                                                    "properties":{"name":"EPSG:4326"}},
-                                             "coordinates":[-121.483721,
-                                                            38.409608]}}],
-                         "2013":[{"name":"Elk Grove Blvd",
-                                  "cal_pm":"10.859",
-                                  "abs_pm":506.152,
-                                  "latitude_4269":"38.409253",
-                                  "longitude_4269":"-121.484009",
-                                  "lanes":1,
-                                  "segment_length":null,
-                                  "freeway":5,
-                                  "direction":"S",
-                                  "vdstype":"OR",
-                                  "district":3,
-                                  "versions":["2013-01-31",
-                                              "2013-02-02",
-                                              "2013-02-07",
-                                              "2013-10-04",
-                                              "2013-12-20",
-                                              "2013-12-31"],
-                                  "geojson":{"type":"Point",
-                                             "crs":{"type":"name",
-                                                    "properties":{"name":"EPSG:4326"}},
-                                             "coordinates":[-121.483721,
-                                                            38.409608]}}],
-                         "2014":[{"name":"Elk Grove Blvd",
-                                  "cal_pm":"10.859",
-                                  "abs_pm":506.152,
-                                  "latitude_4269":"38.409253",
-                                  "longitude_4269":"-121.484009",
-                                  "lanes":1,
-                                  "segment_length":null,
-                                  "freeway":5,
-                                  "direction":"S",
-                                  "vdstype":"OR",
-                                  "district":3,
-                                  "versions":["2014-01-01",
-                                              "2014-01-10",
-                                              "2014-01-11",
-                                              "2014-01-29",
-                                              "2014-02-28"],
-                                  "geojson":{"type":"Point",
-                                             "crs":{"type":"name",
-                                                    "properties":{"name":"EPSG:4326"}},
-                                             "coordinates":[-121.483721,
-                                                            38.409608]}}]}
-
-           // fix the above
-           _.each(newdoc,function(v,year){
-               if(year == '_id') return null
-               newdoc[year] = {'properties':v}
-               // too lazy to fix the above by hand
-               return null
-           });
-           appender({docs:[newdoc]},function(err,res){
-               should.not.exist(err)
-               _.each(res,function(r){
-                   r.should.have.property('ok')
-                   r.should.have.property('id')
-                   r.should.have.property('rev')
-               });
-               var db = config.couchdb.db
-               var cdb = config.couchdb.url || '127.0.0.1'
-               var cport = config.couchdb.port || 5984
-               cdb = cdb+':'+cport
-               if(! /http/.test(cdb)){
-                   cdb = 'http://'+cdb
-               }
-               cdb += '/'+db
-               var rq = superagent.get(cdb+'/'+newdoc._id+'?include_docs=true')
-                        .type('json')
-                        .set('accept','application/json')
-               rq.end(function(e,r){
-                   // now test that I saved what I expect
-                   var doc = r.body
-                   doc.should.have.property('2006')
-                   doc.should.have.property('2009')
-                   doc.should.have.property('2014')
-                   doc.should.have.property("attachment_db")
-
-                   // should copy new values
-                   doc['2006'].properties.should.eql(newdoc['2006'].properties)
-                   // should not destroy old values
-                   doc['2009'].should.have.keys(["vdsdata",
-                                                 "rawdata",
-                                                 "row",
-                                                 "vdsimputed",
-                                                 "properties",
-                                                 "truckimputed",
-                                                 "vdsraw_chain_lengths"])
-                   doc['2009'].properties.should.eql(newdoc['2009'].properties)
-
-                   var expected_keys = Object.keys(newdoc)
-                   expected_keys.push("_rev","detached","attachment_db")
-                   doc.should.have.keys(expected_keys)
-
-
-                   return done()
-               })
-               return null
-           })
-           return null
-       })
-    return null
-})
+    .then(()=>{
+        return tap.test('test setting state',testing)
+    })
+    .then(()=>{
+        tap.end()
+        return utils.teardown(config)
+    })
+    .catch(function(e){
+        throw e
+    })
