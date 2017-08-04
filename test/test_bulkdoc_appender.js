@@ -97,6 +97,7 @@ function testing(t) {
             expected_length += 2
 
             appender(newdocs, (err,res) => {
+                if(err) console.log(err)
                 tt.notOk(err)
                 tt.ok(res)
                 res.forEach( r => {
