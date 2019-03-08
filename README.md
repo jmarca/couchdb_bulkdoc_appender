@@ -2,6 +2,7 @@
 # couchdb_bulkdoc_appender
 
 [![Greenkeeper badge](https://badges.greenkeeper.io/jmarca/couchdb_bulkdoc_appender.svg)](https://greenkeeper.io/)
+[![Build Status](https://travis-ci.org/jmarca/couchdb_bulkdoc_appender.svg?branch=master)](https://travis-ci.org/jmarca/couchdb_bulkdoc_appender)
 [![Code Climate](https://codeclimate.com/github/jmarca/couchdb_bulkdoc_appender/badges/gpa.svg)](https://codeclimate.com/github/jmarca/couchdb_bulkdoc_appender)
 [![Test Coverage](https://codeclimate.com/github/jmarca/couchdb_bulkdoc_appender/badges/coverage.svg)](https://codeclimate.com/github/jmarca/couchdb_bulkdoc_appender/coverage) [![Build Status](https://travis-ci.org/jmarca/couchdb_bulkdoc_appender.svg?branch=master)](https://travis-ci.org/jmarca/couchdb_bulkdoc_appender)
 
