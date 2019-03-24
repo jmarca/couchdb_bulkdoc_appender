@@ -10,21 +10,32 @@ node_js:
 env:
 
 addons:
-  code_climate:
-    repo_token: 7e4e230665a68417b962877994684b38d77b5fbfc71dee8016ac02508d209321
+  global:
+    - COUCHDB_VERSION=2.3.1
+    - COUCHDB_USER=james
+    - COUCHDB_PASSWORD=grobblefruit
+    - CC_TEST_REPORTER_ID=7e4e230665a68417b962877994684b38d77b5fbfc71dee8016ac02508d209321
 
 services:
-  - couchdb
+  - docker
+
+before_install:
+  - docker pull couchdb:$COUCHDB_VERSION
+  - docker run -d  -e COUCHDB_USER=$COUCHDB_USER  -e COUCHDB_PASSWORD=$COUCHDB_PASSWORD -p 5984:5984 couchdb:$COUCHDB_VERSION
+
 
 before_script:
-  - curl -s -X PUT http://localhost:5984/_config/admins/bilbo -d '"baggins"'
-  - echo "{\"couchdb\":{\"host\":\"127.0.0.1\",\"port\":5984,\"db\":\"a_teststatedb\",\"auth\":{\"username\":\"bilbo\",\"password\":\"baggins\"}}}" > test.config.json && chmod 0600 test.config.json
+  # Make sure CouchDB is up
+  - while [ $? -ne 0 ]; do sleep 1 && curl -v http://localhost:5984; done
+  - echo "{\"couchdb\":{\"host\":\"127.0.0.1\",\"port\":5984,\"db\":\"newdb\",\"auth\":{\"username\":\"${COUCHDB_USER}\",\"password\":\"${COUCHDB_PASSWORD}\"}}}" > test.config.json && chmod 0600 test.config.json
+  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+  - chmod +x ./cc-test-reporter
+  - ./cc-test-reporter before-build
 
 notifications:
   email:
     on_success: change
     on_failure: change
 
-after_success:
-  - npm install codeclimate-test-reporter
-  - ./node_modules/.bin/tap --coverage-report=text-lcov | ./node_modules/.bin/codeclimate-test-reporter
+after_script:
+  - ./node_modules/.bin/tap --coverage-report=lcov &&  ./cc-test-reporter after-build  -t lcov --exit-code $TRAVIS_TEST_RESULT
