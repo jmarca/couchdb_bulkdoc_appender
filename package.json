@@ -9,7 +9,7 @@
   "dependencies": {
     "config_okay": "^1.0.1",
     "lodash": "^4.17.4",
-    "superagent": "^4.0.0"
+    "superagent": "^5.0.2"
   },
   "devDependencies": {
     "tap": "^12.6.0"
