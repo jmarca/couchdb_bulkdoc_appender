@@ -81,15 +81,7 @@ couchdb_nw(){
 
 
 couch_setup_testdb(){
-    COUCHDB_USER=james COUCHDB_PASSWORD=grobblefruit \
-                curl  -H "Content-Type: application/json" -X PUT http://james:grobblefruit@localhost:5984/newdb
-    # load dummy data into test db
-    COUCHDB_USER=james COUCHDB_PASSWORD=grobblefruit \
-                curl -d @test/bulkdocs.json -H "Content-Type: application/json" -X POST http://${COUCHDB_USER}:${COUCHDB_PASSWORD}@localhost:5984/newdb/_bulk_docs
-    COUCHDB_USER=james COUCHDB_PASSWORD=grobblefruit \
-                curl -d @test/designdocs.json -H "Content-Type: application/json" -X POST http://${COUCHDB_USER}:${COUCHDB_PASSWORD}@localhost:5984/newdb/_bulk_docs
-    COUCHDB_USER=james COUCHDB_PASSWORD=grobblefruit \
-                echo "{\"couchdb\":{\"host\":\"couchdb\",\"port\":5984,\"db\":\"newdb\",\"auth\":{\"username\":\"${COUCHDB_USER}\",\"password\":\"${COUCHDB_PASSWORD}\"}}}" > test.config.json && chmod 0600 test.config.json
+    echo "{\"couchdb\":{\"host\":\"couchdb\",\"port\":5984,\"db\":\"newdb\",\"auth\":{\"username\":\"james\",\"password\":\"grobblefruit\"}}}" > test.config.json && chmod 0600 test.config.json
 }
 
 make_couch_node_tests_docker(){
