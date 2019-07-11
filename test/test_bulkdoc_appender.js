@@ -358,6 +358,8 @@ function testing(t) {
                             cdb = 'http://'+cdb
                         }
                         cdb += '/'+db
+                        console.log(cdb)
+
                         const rq = superagent.get(cdb+'/'+newdoc._id+'?include_docs=true')
                               .type('json')
                               .set('accept','application/json')
