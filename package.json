@@ -8,11 +8,11 @@
   },
   "dependencies": {
     "config_okay": "^1.0.1",
-    "lodash": "^4.17.4",
-    "superagent": "^5.0.2"
+    "lodash": "^4.17.14",
+    "superagent": "^4.1.0"
   },
   "devDependencies": {
-    "tap": "^14.0.0"
+    "tap": "^12.7.0"
   },
   "scripts": {
     "test": "tap test/**/test*.js --cov",

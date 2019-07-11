@@ -130,7 +130,7 @@ function testing(t) {
                             tt.ok(r.rev)
                         })
                         var db = config.couchdb.db
-                        var cdb = config.couchdb.url || '127.0.0.1'
+                        var cdb = config.couchdb.host || '127.0.0.1'
                         var cport = config.couchdb.port || 5984
                         cdb = cdb+':'+cport
                         if(! /http/.test(cdb)){
@@ -351,7 +351,7 @@ function testing(t) {
                             tt.ok(r.rev)
                         })
                         const db = config.couchdb.db
-                        let cdb = config.couchdb.url || '127.0.0.1'
+                        let cdb = config.couchdb.host || '127.0.0.1'
                         let cport = config.couchdb.port || 5984
                         cdb = cdb+':'+cport
                         if(! /http/.test(cdb)){
