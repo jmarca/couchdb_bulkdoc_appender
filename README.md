@@ -21,7 +21,7 @@ ids, and just one field from the existing documents to update.
 
 Instead of one by one extracting and updating each document, I am
 instead wanting to bulk get lots of docs, and then update all of them
-iwth new information, and then bulk save the lot.
+with new information, and then bulk save the lot.
 
 And create any new documents as needed.
 
