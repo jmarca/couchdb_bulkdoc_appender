@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "config_okay": "^1.0.1",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.19",
     "superagent": "^5.2.2",
     "snyk": "^1.316.1"
   },
