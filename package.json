@@ -10,7 +10,7 @@
     "config_okay": "^1.0.1",
     "lodash": "^4.17.20",
     "superagent": "^5.3.1",
-    "snyk": "^1.316.1"
+    "snyk": "^1.316.2"
   },
   "devDependencies": {
     "tap": "^14.10.7"
