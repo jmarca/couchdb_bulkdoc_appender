@@ -102,6 +102,6 @@ couch_node_test(){
            -e COUCHDB_PASSWORD=grobblefruit \
            -e COUCHDB_PASS=grobblefruit \
            -e COUCHDB_HOST=couchdb \
-           --name run_tests_sh jmarca/couch_node_tests:126 bash
+           --name run_tests_sh jmarca/couch_node_tests bash
 
 }
