@@ -1,9 +1,9 @@
-# Sample .travis.yml for R projects from https://github.com/craigcitro/r-travis
+12# Sample .travis.yml for R projects from https://github.com/craigcitro/r-travis
 
 language: node_js
 node_js:
   - "node"
-  - "8"
+  - "12"
 
 
 env:
