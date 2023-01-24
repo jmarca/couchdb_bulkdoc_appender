@@ -9,7 +9,7 @@
   "dependencies": {
     "config_okay": "^1.0.1",
     "lodash": "^4.17.21",
-    "snyk": "^1.996.0",
+    "snyk": "^1.1064.0",
     "superagent": "^5.3.1"
   },
   "devDependencies": {
